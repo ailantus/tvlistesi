@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.tvlistesi"
         minSdk = 21
         targetSdk = 34
-        versionCode = 41
-        versionName = "2.0.30"
+        versionCode = 42
+        versionName = "2.0.31"
 
         vectorDrawables {
             useSupportLibrary = true

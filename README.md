@@ -42,8 +42,8 @@ uygulamayı yeniden yayınlamanız gerekmez.
 
 ## İndir
 
-Hazır imzalı APK: [TvListesi 2.0.30 sürümü](https://github.com/ailantus/TvListesi/releases/latest)
-(`TvListesi-2.0.30.apk`, versionCode 41). Uygulama açılışta bu sürümü kontrol eder
+Hazır imzalı APK: [TvListesi 2.0.31 sürümü](https://github.com/ailantus/TvListesi/releases/latest)
+(`TvListesi-2.0.31.apk`, versionCode 42). Uygulama açılışta bu sürümü kontrol eder
 ve yeni sürüm varsa kurulumu teklif eder.
 
 ## Hızlı başlangıç
@@ -243,14 +243,16 @@ uygulaması UDP yayını ile alıcıyı bulur.
 3. Bulunan cihazlardan TV kutusunu seçin. İlk bağlantıda TV ekranındaki kodu
    girin; kod cihaz için kaydedilir, sonraki gönderimlerde tekrar sorulmaz.
 4. Yayın TV'de açılır; telefondaki oynatıcı aynı sesi tekrar vermemek için
-   duraklatılır ve **yansıtma kumandası** açılır. Bu ekrandan TV'nin ses seviyesi
-   artırılıp azaltılabilir, yayın 15 saniye ileri/geri sarılabilir ve
-   oynatma duraklatılıp sürdürülebilir. **Başka cihaz** ile başka bir alıcı
-   seçilebilir, **Bağlantıyı kes** TV'deki oynatmayı sonlandırır.
-5. sonraki gönderimlerde TV simgesine dokunmak kumandayı doğrudan açar.
-   Telefonda **uygulama simgesine uzun basıp „Yansıtma kumandası“ kısayolunu**
-   seçerek de son kullanılan TV'ye doğrudan bağlanabilirsiniz; oynatıcı
-   açılmaz, kumanda hemen görünür.
+   duraklatılır. **Kumanda ekranı otomatik açılmaz.** TV simgesine **uzun
+   basınca** açılan kumandadan TV'nin ses seviyesi artırılıp azaltılabilir,
+   yayın 15 saniye ileri/geri sarılabilir ve oynatma duraklatılıp
+   sürdürülebilir. **Başka cihaz** ile başka bir alıcı seçilebilir,
+   **Bağlantıyı kes** TV'deki oynatmayı sonlandırır.
+5. Bağlantı sürerken TV simgesine **dokunmak** seçili kanalı cihaz seçimi
+   göstermeden kayıtlı TV'ye hemen gönderir. Kumandayı açmak için TV simgesine
+   uzun basın. Telefonda **uygulama simgesine uzun basıp „Yansıtma kumandası“
+   kısayolunu** seçerek de son kullanılan TV'ye doğrudan bağlanabilirsiniz;
+   oynatıcı açılmaz, kumanda hemen görünür.
 
 Ağda cihaz bulunamazsa **IP ile ekle** düğmesiyle TV'nin IP adresini elle
 girebilirsiniz. Bu yöntem, yönlendiricinin UDP yayınını engellediği ağlarda
@@ -351,7 +353,7 @@ sürüm için uyarı bir kez gösterilir; **Sonra** seçilirse otomatik kontrol 
 bildirim çıkarmaz.
 
 Yeni sürüm yayınlamak için `ailantus/TvListesi` deposunda bir release oluşturun
-(etiket `v2.0.30` gibi `versionName` ile eşleşmelidir) ve imzalı APK'yı varlık
+(etiket `v2.0.31` gibi `versionName` ile eşleşmelidir) ve imzalı APK'yı varlık
 olarak ekleyin. Uygulama aynı etiketli sürümü tekrar indirmez; indirmeden önce
 etiketi kurulu sürümle karşılaştırır, gerekiyorsa APK'nın `versionCode`/
 `versionName` değerini okuyup imzasını doğrular. Telegram kanalından bulunan doğrudan `.apk` veya Google Drive

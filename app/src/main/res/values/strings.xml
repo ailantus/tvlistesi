@@ -139,6 +139,7 @@
     <string name="yansitma_baska_cihaz">Başka cihaz</string>
     <string name="yansitma_bag_kes">Bağlantıyı kes</string>
     <string name="yansitma_kumanda_gonderilemedi">Komut gönderilemedi: %1$s</string>
+    <string name="yansitma_kumanda_ipucu">Kumanda için TV simgesine uzun basın.</string>
     <string name="kisayol_kumanda_kisa">Kumanda</string>
     <string name="kisayol_kumanda_uzun">Yansıtma kumandası</string>
     <string name="kisayol_kumanda_devre_disi">Önce bir TV’ye yansıtman gerekiyor.</string>

@@ -206,7 +206,16 @@ class PlayerActivity : AppCompatActivity() {
         binding.sizeButton.setOnClickListener { cycleScreenMode() }
         binding.castButton.setOnClickListener { showCastDialog() }
         binding.mirrorButton.setOnClickListener {
-            if (castTarget != null) showCastRemoteDialog() else showCastSendDialog()
+            // Bağlantı sürerken başka kanal seçilirse aynı TV'ye doğrudan gönder.
+            if (castTarget != null) sendToActiveCastTarget() else showCastSendDialog()
+        }
+        binding.mirrorButton.setOnLongClickListener {
+            if (castTarget != null) {
+                showCastRemoteDialog()
+                true
+            } else {
+                false
+            }
         }
         binding.externalButton.setOnClickListener { openExternally() }
         binding.retryButton.setOnClickListener { play(currentIndex) }
@@ -951,6 +960,51 @@ class PlayerActivity : AppCompatActivity() {
 
     // ---------------------------------------------------- Uygulama içi yansıtma
 
+    /**
+     * Yansıtma bağlıyken seçilen yeni kanalı cihaz listesini açmadan aynı TV'ye
+     * gönderir. Eşleştirme kodu zaten kayıtlı olduğu için tekrar sorulmaz.
+     */
+    private fun sendToActiveCastTarget() {
+        val channel = currentChannel()
+        if (channel == null) {
+            Toast.makeText(this, R.string.kanal_bulunamadi, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val device = castTarget ?: return
+        val pin = CastPrefs.pinFor(this, device.ip)
+        if (pin.length != 6) {
+            castTarget = null
+            showCastSendDialog()
+            return
+        }
+
+        Toast.makeText(this, R.string.yansitma_gonderiliyor, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val error = withContext(Dispatchers.IO) {
+                CastSender.send(device, pin, channel)
+            }
+            if (isFinishing) return@launch
+
+            if (error.isBlank()) {
+                // TV yeni kanalı oynatırken telefondaki sesi tekrar açma.
+                player?.pause()
+                CastPrefs.saveLastDevice(this@PlayerActivity, device)
+                Toast.makeText(
+                    this@PlayerActivity,
+                    getString(R.string.yansitma_gonderildi, channel.name, device.name),
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                if (error.contains("PIN", ignoreCase = true)) {
+                    CastPrefs.clearPin(this@PlayerActivity, device.ip)
+                    castTarget = null
+                }
+                val message = "${getString(R.string.yansitma_gonderilemedi)} $error"
+                Toast.makeText(this@PlayerActivity, message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     /** Aynı Wi-Fi'deki diğer TV Listesi uygulamalarına geçerli kanalı gönderir. */
     private fun showCastSendDialog() {
         val channel = currentChannel()
@@ -1094,7 +1148,8 @@ class PlayerActivity : AppCompatActivity() {
 
             dialogBinding.progress.isVisible = false
             if (error.isBlank()) {
-                // TV oynatırken telefondaki sesi kapat.
+                // TV oynatırken telefondaki sesi kapat. Kumanda ekranı kendiliğinden
+                // açılmaz; TV simgesine uzun basarak açılabilir.
                 player?.pause()
                 castTarget = device
                 CastPrefs.saveLastDevice(this@PlayerActivity, device)
@@ -1104,7 +1159,7 @@ class PlayerActivity : AppCompatActivity() {
                     getString(R.string.yansitma_gonderildi, channel.name, device.name),
                     Toast.LENGTH_SHORT
                 ).show()
-                showCastRemoteDialog()
+                showCastRemoteHintOnce()
             } else {
                 if (error.contains("PIN", ignoreCase = true)) {
                     CastPrefs.clearPin(this@PlayerActivity, device.ip)
@@ -1114,6 +1169,14 @@ class PlayerActivity : AppCompatActivity() {
                 Toast.makeText(this@PlayerActivity, message, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    /** İlk yansıtmada kumandanın nereden açılacağını bir kez hatırlatır. */
+    private fun showCastRemoteHintOnce() {
+        val prefs = getSharedPreferences("tv_listesi_ayarlar", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("yansitma_kumanda_ipucu", false)) return
+        prefs.edit().putBoolean("yansitma_kumanda_ipucu", true).apply()
+        Toast.makeText(this, R.string.yansitma_kumanda_ipucu, Toast.LENGTH_LONG).show()
     }
 
     /** Yansıtma sonrası telefondan TV oynatıcısını kontrol eder. */
