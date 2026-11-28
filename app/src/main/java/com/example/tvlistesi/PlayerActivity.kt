@@ -17,6 +17,8 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.EditText
+import android.text.InputFilter
 import android.widget.FrameLayout
 import android.widget.SeekBar
 import android.widget.Toast
@@ -42,12 +44,18 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.tvlistesi.cast.CastAction
+import com.example.tvlistesi.cast.CastDevice
+import com.example.tvlistesi.cast.CastPrefs
+import com.example.tvlistesi.cast.CastReceiver
+import com.example.tvlistesi.cast.CastSender
 import com.example.tvlistesi.data.Channel
 import com.example.tvlistesi.data.DlnaDevice
 import com.example.tvlistesi.data.ExternalPlayer
 import com.example.tvlistesi.data.PlaylistParser
 import com.example.tvlistesi.data.PlaylistRepository
 import com.example.tvlistesi.databinding.ActivityPlayerBinding
+import com.example.tvlistesi.databinding.DialogCastRemoteBinding
 import com.example.tvlistesi.databinding.DialogDlnaDevicesBinding
 import com.example.tvlistesi.dlna.DlnaClient
 import com.example.tvlistesi.dlna.DlnaDiscovery
@@ -74,6 +82,9 @@ class PlayerActivity : AppCompatActivity() {
     private var externalMime: String? = null
     private var hideList = false
     private var castDevice: DlnaDevice? = null
+    private var castTarget: CastDevice? = null
+    private var remoteOnly = false
+    private var remoteDialogShown = false
 
     private val channelAdapter = PlayerChannelAdapter { index -> play(index) }
     private var panelPreferred = true
@@ -165,6 +176,7 @@ class PlayerActivity : AppCompatActivity() {
         hideList = savedInstanceState?.getBoolean(EXTRA_HIDE_LIST)
             ?: intent.getBooleanExtra(EXTRA_HIDE_LIST, false)
         panelPreferred = !hideList
+        remoteOnly = intent.action == ACTION_OPEN_CAST_REMOTE
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         originalBrightness = window.attributes.screenBrightness
@@ -193,6 +205,9 @@ class PlayerActivity : AppCompatActivity() {
         binding.rotateButton.setOnClickListener { toggleOrientation() }
         binding.sizeButton.setOnClickListener { cycleScreenMode() }
         binding.castButton.setOnClickListener { showCastDialog() }
+        binding.mirrorButton.setOnClickListener {
+            if (castTarget != null) showCastRemoteDialog() else showCastSendDialog()
+        }
         binding.externalButton.setOnClickListener { openExternally() }
         binding.retryButton.setOnClickListener { play(currentIndex) }
         binding.playPauseButton.setOnClickListener { togglePlayPause() }
@@ -326,6 +341,30 @@ class PlayerActivity : AppCompatActivity() {
         }
         seekToMs(exoPlayer.currentPosition + deltaMs)
         showSeekIndicator(deltaMs)
+    }
+
+    /** Telefondan gelen yansıtma komutunu TV oynatıcısında uygular. */
+    private fun applyCastControl(action: String) {
+        when (action) {
+            CastAction.VOLUME_UP -> audioManager.adjustStreamVolume(
+                AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI
+            )
+
+            CastAction.VOLUME_DOWN -> audioManager.adjustStreamVolume(
+                AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI
+            )
+
+            CastAction.SEEK_BACK -> seekBy(-SEEK_STEP_MS)
+            CastAction.SEEK_FORWARD -> seekBy(SEEK_STEP_MS)
+            CastAction.PLAY_PAUSE -> {
+                // Tamponlama sırasında da çalışması için isteği doğrudan değiştir.
+                player?.let { it.playWhenReady = !it.playWhenReady }
+            }
+            CastAction.STOP -> {
+                player?.pause()
+                finish()
+            }
+        }
     }
 
     private fun showSeekIndicator(deltaMs: Long) {
@@ -910,6 +949,246 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // ---------------------------------------------------- Uygulama içi yansıtma
+
+    /** Aynı Wi-Fi'deki diğer TV Listesi uygulamalarına geçerli kanalı gönderir. */
+    private fun showCastSendDialog() {
+        val channel = currentChannel()
+        if (channel == null) {
+            Toast.makeText(this, R.string.kanal_bulunamadi, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val dialogBinding = DialogDlnaDevicesBinding.inflate(layoutInflater)
+        dialogBinding.addDeviceButton.text = getString(R.string.yansitma_ip_ile_ekle)
+        dialogBinding.refreshButton.text = getString(R.string.yenile)
+        dialogBinding.stopButton.isVisible = false
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.yansitma_gonder)
+            .setView(dialogBinding.root)
+            .setNegativeButton(R.string.kapat, null)
+            .create()
+
+        val found = mutableListOf<CastDevice>()
+        val manual = mutableListOf<CastDevice>()
+        val adapter = DlnaDeviceAdapter { device ->
+            val cast = (found + manual).firstOrNull { it.ip == device.udn }
+            if (cast != null) promptCastPin(cast, channel, dialog, dialogBinding)
+        }
+
+        dialogBinding.deviceList.layoutManager = LinearLayoutManager(this)
+        dialogBinding.deviceList.adapter = adapter
+
+        fun asDlna(device: CastDevice) = DlnaDevice(
+            name = device.name,
+            udn = device.ip,
+            location = "http://${device.ip}:8977",
+            avTransportUrl = "cast"
+        )
+
+        fun render() {
+            val devices = (found + manual).distinctBy { it.ip }
+            adapter.submitList(devices.map(::asDlna))
+            dialogBinding.statusText.isVisible = devices.isEmpty()
+            if (devices.isEmpty()) {
+                dialogBinding.statusText.text = getString(R.string.yansitma_cihaz_yok)
+            }
+        }
+
+        fun load() {
+            dialogBinding.progress.isVisible = true
+            dialogBinding.statusText.isVisible = true
+            dialogBinding.statusText.text = getString(R.string.yansitma_cihaz_ara)
+
+            lifecycleScope.launch {
+                val devices = CastSender.discover()
+                if (isFinishing) return@launch
+                found.clear()
+                found += devices
+                dialogBinding.progress.isVisible = false
+                render()
+            }
+        }
+
+        dialogBinding.refreshButton.setOnClickListener { load() }
+        dialogBinding.addDeviceButton.setOnClickListener {
+            val input = EditText(this).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                filters = arrayOf(InputFilter.LengthFilter(15))
+                hint = "192.168.1.82"
+            }
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.yansitma_ip_baslik)
+                .setView(input)
+                .setNegativeButton(R.string.iptal, null)
+                .setPositiveButton(R.string.kaydet) { _, _ ->
+                    val ip = input.text.toString().trim()
+                    val octets = ip.split('.')
+                    if (octets.size != 4 || octets.any { it.toIntOrNull() !in 0..255 }) {
+                        Toast.makeText(this, R.string.yansitma_gecerli_ip, Toast.LENGTH_SHORT).show()
+                    } else {
+                        manual.removeAll { it.ip == ip }
+                        manual += CastDevice(ip = ip, name = "TvListesi", model = "")
+                        render()
+                    }
+                }
+                .show()
+        }
+
+        dialog.setOnShowListener { load() }
+        dialog.show()
+    }
+
+    private fun promptCastPin(
+        device: CastDevice,
+        channel: Channel,
+        dialog: AlertDialog,
+        dialogBinding: DialogDlnaDevicesBinding
+    ) {
+        val saved = CastPrefs.pinFor(this, device.ip)
+        if (saved.length == 6) {
+            sendToCastDevice(device, channel, saved, dialog, dialogBinding)
+            return
+        }
+
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(InputFilter.LengthFilter(6))
+            hint = "000000"
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.yansitma_pin_baslik)
+            .setMessage(R.string.yansitma_pin_mesaj)
+            .setView(input)
+            .setNegativeButton(R.string.iptal, null)
+            .setPositiveButton(R.string.yansitma_gonder) { _, _ ->
+                val pin = input.text.toString().trim()
+                if (pin.length != 6) {
+                    Toast.makeText(this, R.string.yansitma_pin_hatali, Toast.LENGTH_SHORT).show()
+                } else {
+                    CastPrefs.savePin(this, device.ip, pin)
+                    sendToCastDevice(device, channel, pin, dialog, dialogBinding)
+                }
+            }
+            .show()
+    }
+
+    private fun sendToCastDevice(
+        device: CastDevice,
+        channel: Channel,
+        pin: String,
+        dialog: AlertDialog,
+        dialogBinding: DialogDlnaDevicesBinding
+    ) {
+        dialogBinding.progress.isVisible = true
+        dialogBinding.statusText.isVisible = true
+        dialogBinding.statusText.text = getString(R.string.yansitma_gonderiliyor)
+
+        lifecycleScope.launch {
+            val error = withContext(Dispatchers.IO) {
+                CastSender.send(device, pin, channel)
+            }
+            if (isFinishing) return@launch
+
+            dialogBinding.progress.isVisible = false
+            if (error.isBlank()) {
+                // TV oynatırken telefondaki sesi kapat.
+                player?.pause()
+                castTarget = device
+                CastPrefs.saveLastDevice(this@PlayerActivity, device)
+                dialog.dismiss()
+                Toast.makeText(
+                    this@PlayerActivity,
+                    getString(R.string.yansitma_gonderildi, channel.name, device.name),
+                    Toast.LENGTH_SHORT
+                ).show()
+                showCastRemoteDialog()
+            } else {
+                if (error.contains("PIN", ignoreCase = true)) {
+                    CastPrefs.clearPin(this@PlayerActivity, device.ip)
+                }
+                val message = "${getString(R.string.yansitma_gonderilemedi)} $error"
+                dialogBinding.statusText.text = message
+                Toast.makeText(this@PlayerActivity, message, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /** Yansıtma sonrası telefondan TV oynatıcısını kontrol eder. */
+    private fun showCastRemoteDialog() {
+        val target = castTarget ?: return
+        val binding = DialogCastRemoteBinding.inflate(layoutInflater)
+        binding.statusText.text = getString(R.string.yansitma_kumanda_aciklama, target.name)
+        binding.changeButton.isVisible = !remoteOnly
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.yansitma_kumanda)
+            .setView(binding.root)
+            .setNegativeButton(R.string.kapat, null)
+            .setOnDismissListener { if (remoteOnly) finish() }
+            .create()
+
+        binding.volumeDownButton.setOnClickListener {
+            sendCastControl(binding, CastAction.VOLUME_DOWN)
+        }
+        binding.volumeUpButton.setOnClickListener {
+            sendCastControl(binding, CastAction.VOLUME_UP)
+        }
+        binding.rewindButton.setOnClickListener {
+            sendCastControl(binding, CastAction.SEEK_BACK)
+        }
+        binding.forwardButton.setOnClickListener {
+            sendCastControl(binding, CastAction.SEEK_FORWARD)
+        }
+        binding.playPauseButton.setOnClickListener {
+            sendCastControl(binding, CastAction.PLAY_PAUSE)
+        }
+        binding.changeButton.setOnClickListener {
+            dialog.dismiss()
+            castTarget = null
+            showCastSendDialog()
+        }
+        binding.disconnectButton.setOnClickListener {
+            sendCastControl(binding, CastAction.STOP) {
+                castTarget = null
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun sendCastControl(
+        binding: DialogCastRemoteBinding,
+        action: String,
+        onDone: (() -> Unit)? = null
+    ) {
+        val target = castTarget ?: return
+        val pin = CastPrefs.pinFor(this, target.ip)
+        if (pin.length != 6) {
+            Toast.makeText(this, R.string.yansitma_pin_hatali, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            val error = withContext(Dispatchers.IO) {
+                CastSender.control(target, pin, action)
+            }
+            if (isFinishing) return@launch
+            if (error.isBlank()) {
+                onDone?.invoke()
+            } else {
+                Toast.makeText(
+                    this@PlayerActivity,
+                    getString(R.string.yansitma_kumanda_gonderilemedi, error),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     private fun stopCasting(dialogBinding: DialogDlnaDevicesBinding) {
         val device = castDevice ?: return
         dialogBinding.stopButton.isEnabled = false
@@ -939,6 +1218,25 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         showControls(userInteraction = true)
+        CastReceiver.onStopRequest = {
+            player?.pause()
+            finish()
+        }
+        CastReceiver.controlHandler = { action -> applyCastControl(action) }
+
+        if (remoteOnly) {
+            // Uygulama simgesindeki kısayol: oynatıcıyı açmadan kumandayı göster.
+            val target = CastPrefs.lastDevice(this)
+            if (target == null || CastPrefs.pinFor(this, target.ip).length != 6) {
+                Toast.makeText(this, R.string.kisayol_kumanda_yok, Toast.LENGTH_LONG).show()
+                finish()
+                return
+            }
+            castTarget = target
+            remoteDialogShown = false
+            return
+        }
+
         // Doğrudan link açılırken kanal listesi henüz yüklenmemiş olabilir;
         // bu durumda da oynatıcıyı kurmak gerekir.
         if (externalChannel() != null || PlaylistRepository.channels.isNotEmpty()) {
@@ -963,6 +1261,8 @@ class PlayerActivity : AppCompatActivity() {
         binding.gestureIndicator.isVisible = false
         restoreBrightness()
         releasePlayer()
+        CastReceiver.onStopRequest = null
+        CastReceiver.controlHandler = null
     }
 
     /**
@@ -1062,6 +1362,12 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && remoteOnly && !remoteDialogShown) {
+            // Kısayol diyaloğu ancak pencere odak kazandıktan sonra gösterilir;
+            // aksi halde dokunuşlar arka plandaki uygulamaya gidebilir.
+            remoteDialogShown = true
+            binding.root.post { if (!isFinishing) showCastRemoteDialog() }
+        }
         // Sistem çubukları gizlenirken oluşan odak olayları arayüzü geri
         // getirmesin; yalnızca gerçekten dönüşte (diyalog/başka uygulama) göster.
         if (hasFocus && SystemClock.uptimeMillis() - hiddenAt > 700L) {
@@ -1147,6 +1453,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     companion object {
+        const val ACTION_OPEN_CAST_REMOTE = "com.example.tvlistesi.OPEN_CAST_REMOTE"
+
         private const val EXTRA_INDEX = "kanal_indeksi"
         private const val EXTRA_URL = "dlna_adresi"
         private const val EXTRA_TITLE = "dlna_basligi"
@@ -1176,13 +1484,16 @@ class PlayerActivity : AppCompatActivity() {
             hideList: Boolean = true
         ) {
             val inferred = mimeType ?: PlaylistParser.mediaMimeType(url)
-            context.startActivity(
-                Intent(context, PlayerActivity::class.java)
-                    .putExtra(EXTRA_URL, url)
-                    .putExtra(EXTRA_TITLE, title)
-                    .putExtra(EXTRA_MIME, inferred)
-                    .putExtra(EXTRA_HIDE_LIST, hideList)
-            )
+            val intent = Intent(context, PlayerActivity::class.java)
+                .putExtra(EXTRA_URL, url)
+                .putExtra(EXTRA_TITLE, title)
+                .putExtra(EXTRA_MIME, inferred)
+                .putExtra(EXTRA_HIDE_LIST, hideList)
+            // Yansıtma alıcısı uygulama bağlamından açar; yeni görev gerekir.
+            if (context !is android.app.Activity) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
         }
     }
 }

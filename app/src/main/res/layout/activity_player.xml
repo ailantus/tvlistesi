@@ -203,6 +203,16 @@
             app:tint="@color/beyaz" />
 
         <ImageButton
+            android:id="@+id/mirrorButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/yansitma_gonder"
+            android:src="@drawable/ic_tv"
+            app:tint="@color/beyaz" />
+
+        <ImageButton
             android:id="@+id/sizeButton"
             android:layout_width="48dp"
             android:layout_height="48dp"

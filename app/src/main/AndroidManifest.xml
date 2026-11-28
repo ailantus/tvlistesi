@@ -58,6 +58,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <!-- Uygulama simgesine uzun basınca kumanda kısayolu. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <!-- Telegram/tarayıcıdan gelen HLS bağlantılarını doğrudan oynat. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

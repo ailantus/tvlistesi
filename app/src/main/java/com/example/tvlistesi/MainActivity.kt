@@ -5,7 +5,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
+import android.app.UiModeManager
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
@@ -21,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.tvlistesi.cast.CastReceiver
 import com.example.tvlistesi.data.ApkUpdater
 import com.example.tvlistesi.data.Channel
 import com.example.tvlistesi.data.ExternalPlayer
@@ -28,6 +31,7 @@ import com.example.tvlistesi.data.PlaylistParser
 import com.example.tvlistesi.data.PlaylistRepository
 import com.example.tvlistesi.data.SavedList
 import com.example.tvlistesi.databinding.ActivityMainBinding
+import com.example.tvlistesi.databinding.DialogCastReceiverBinding
 import com.example.tvlistesi.databinding.DialogSaveListBinding
 import com.example.tvlistesi.databinding.DialogSavedListsBinding
 import com.example.tvlistesi.databinding.DialogSettingsBinding
@@ -85,14 +89,29 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_STREAM_ADDED = "streamAdded"
     }
 
+    /** Uygulama simgesindeki kumanda kısayolunu PlayerActivity'ye yönlendirir. */
+    private fun handleCastShortcut(incoming: Intent): Boolean {
+        if (incoming.action != PlayerActivity.ACTION_OPEN_CAST_REMOTE) return false
+        startActivity(
+            Intent(this, PlayerActivity::class.java).setAction(PlayerActivity.ACTION_OPEN_CAST_REMOTE)
+        )
+        finish()
+        return true
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
 
+        if (handleCastShortcut(intent)) return
+
         // Eski örnek sunucu adresini yerleşik listeye taşı.
         PlaylistRepository.migrateDemoServer(this)
+
+        // Android TV kutusunda alıcı açılışta hazır olsun.
+        if (isTvDevice()) CastReceiver.start(applicationContext)
 
         adapter = ChannelAdapter(
             onClick = { channel -> openPlayer(channel) },
@@ -152,8 +171,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Uygulama zaten açıksa VIEW intent'i burada gelir (singleTop).
-        handleViewIntent(intent)
+        setIntent(intent)
+        // Uygulama zaten açıksa VIEW intent'i veya kumanda kısayolu burada gelir.
+        if (!handleCastShortcut(intent)) handleViewIntent(intent)
     }
 
     /** Telegram/Tarayıcı'dan gelen http(s) yayın bağlantısını oynatıcıya devreder. */
@@ -269,6 +289,11 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
+        R.id.action_cast_receiver -> {
+            showCastReceiverDialog()
+            true
+        }
+
         R.id.action_rotate -> {
             toggleOrientation()
             true
@@ -284,6 +309,50 @@ class MainActivity : AppCompatActivity() {
             } else {
                 ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
+    }
+
+    private fun isTvDevice(): Boolean {
+        val uiMode = getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+        return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            uiMode?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+    }
+
+    /** TV kutusundaki uygulama içi yayın alıcısını açar/kapatır ve PIN'i gösterir. */
+    private fun showCastReceiverDialog() {
+        val binding = DialogCastReceiverBinding.inflate(layoutInflater)
+
+        fun render() {
+            binding.statusText.text = if (CastReceiver.isRunning) {
+                getString(R.string.yansitma_alici_acik, CastReceiver.localIp, CastReceiver.deviceName)
+            } else {
+                getString(R.string.yansitma_alici_kapali)
+            }
+            binding.pinText.text = if (CastReceiver.isRunning) {
+                getString(R.string.yansitma_pin, CastReceiver.pin)
+            } else {
+                getString(R.string.yansitma_pin, "------")
+            }
+            binding.toggleButton.text = getString(
+                if (CastReceiver.isRunning) R.string.yansitma_alici_durdur
+                else R.string.yansitma_alici_baslat
+            )
+        }
+
+        binding.toggleButton.setOnClickListener {
+            if (CastReceiver.isRunning) {
+                CastReceiver.stop()
+            } else {
+                CastReceiver.start(applicationContext)
+            }
+            render()
+        }
+        render()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.yansitma_alici)
+            .setView(binding.root)
+            .setNegativeButton(R.string.kapat, null)
+            .show()
     }
 
     /** Doğrudan HLS/DASH/MP4 linkini kanal listesine gerek kalmadan açar. */

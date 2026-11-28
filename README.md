@@ -29,6 +29,9 @@ uygulamayı yeniden yayınlamanız gerekmez.
 - Oynatıcıda **ekran boyutu** düğmesi: Sığdır → Kırp → Esnet görüntü modları
 - **DLNA/UPnP**: açık kanalı ağdaki DLNA oynatıcılarına (akıllı TV, medya kutusu) gönderme
   ve DLNA medya sunucularındaki (NAS, bilgisayar) içerikleri gezip oynatma
+- **Telefon → TV yansıtma:** aynı Wi-Fi'deki iki uygulama birbirini otomatik bulur;
+  6 haneli eşleştirme koduyla telefondaki kanal TV kutusunda oynatılır (DLNA gerekmez).
+  Yansıtma sırasında telefondan **ses, ileri/geri sarma ve oynat/duraklat** kontrolü de kullanılır
 - Telefon, tablet ve Android TV (Leanback başlatıcı + D-pad odak desteği)
 - Kanal logosu yükleme, uzun basınca yayın adresini kopyalama
 - Koyu tema, harici görsel/JSON kütüphanesi gerektirmeyen sade bağımlılıklar
@@ -39,8 +42,8 @@ uygulamayı yeniden yayınlamanız gerekmez.
 
 ## İndir
 
-Hazır imzalı APK: [TvListesi 2.0.28 sürümü](https://github.com/ailantus/TvListesi/releases/latest)
-(`TvListesi-2.0.28.apk`, versionCode 39). Uygulama açılışta bu sürümü kontrol eder
+Hazır imzalı APK: [TvListesi 2.0.30 sürümü](https://github.com/ailantus/TvListesi/releases/latest)
+(`TvListesi-2.0.30.apk`, versionCode 41). Uygulama açılışta bu sürümü kontrol eder
 ve yeni sürüm varsa kurulumu teklif eder.
 
 ## Hızlı başlangıç
@@ -226,6 +229,34 @@ https://raw.githubusercontent.com/ailantus/TeVe/main/data/power-sinema.m3u
 - **Sunucu ayarları → Harici oynatıcıda aç** açıksa listeden kanala dokunmak
   doğrudan harici oynatıcıyı açar; uygun uygulama yoksa dahili oynatıcıya dönülür.
 
+## Telefon → TV yansıtma
+
+Ek cihaz veya DLNA sunucusu gerekmeden, aynı Wi-Fi ağındaki iki uygulama
+doğrudan konuşur. TV kutusunda alıcı açılışta otomatik başlar; telefon
+uygulaması UDP yayını ile alıcıyı bulur.
+
+1. TV kutusunda uygulamayı açın. Gerekirse **⋮ → Yansıtma alıcısı** ekranından
+   alıcının açık olduğunu ve IP adresini kontrol edin. Ekranda 6 haneli
+   **eşleştirme kodu** gösterilir (her başlatmada değişir).
+2. Telefonda oynatmak istediğiniz kanalı açın ve oynatıcıdaki **TV simgesine**
+   dokunun.
+3. Bulunan cihazlardan TV kutusunu seçin. İlk bağlantıda TV ekranındaki kodu
+   girin; kod cihaz için kaydedilir, sonraki gönderimlerde tekrar sorulmaz.
+4. Yayın TV'de açılır; telefondaki oynatıcı aynı sesi tekrar vermemek için
+   duraklatılır ve **yansıtma kumandası** açılır. Bu ekrandan TV'nin ses seviyesi
+   artırılıp azaltılabilir, yayın 15 saniye ileri/geri sarılabilir ve
+   oynatma duraklatılıp sürdürülebilir. **Başka cihaz** ile başka bir alıcı
+   seçilebilir, **Bağlantıyı kes** TV'deki oynatmayı sonlandırır.
+5. sonraki gönderimlerde TV simgesine dokunmak kumandayı doğrudan açar.
+   Telefonda **uygulama simgesine uzun basıp „Yansıtma kumandası“ kısayolunu**
+   seçerek de son kullanılan TV'ye doğrudan bağlanabilirsiniz; oynatıcı
+   açılmaz, kumanda hemen görünür.
+
+Ağda cihaz bulunamazsa **IP ile ekle** düğmesiyle TV'nin IP adresini elle
+girebilirsiniz. Bu yöntem, yönlendiricinin UDP yayınını engellediği ağlarda
+işe yarar. Yansıtma alıcısı yalnızca yerel ağda dinler ve yanlış kodla
+gönderilen istekleri reddeder.
+
 ## DLNA / UPnP
 
 Uygulama, ek bir kütüphane kullanmadan SSDP (multicast arama), UPnP cihaz tanımı,
@@ -320,7 +351,7 @@ sürüm için uyarı bir kez gösterilir; **Sonra** seçilirse otomatik kontrol 
 bildirim çıkarmaz.
 
 Yeni sürüm yayınlamak için `ailantus/TvListesi` deposunda bir release oluşturun
-(etiket `v2.0.28` gibi `versionName` ile eşleşmelidir) ve imzalı APK'yı varlık
+(etiket `v2.0.30` gibi `versionName` ile eşleşmelidir) ve imzalı APK'yı varlık
 olarak ekleyin. Uygulama aynı etiketli sürümü tekrar indirmez; indirmeden önce
 etiketi kurulu sürümle karşılaştırır, gerekiyorsa APK'nın `versionCode`/
 `versionName` değerini okuyup imzasını doğrular. Telegram kanalından bulunan doğrudan `.apk` veya Google Drive

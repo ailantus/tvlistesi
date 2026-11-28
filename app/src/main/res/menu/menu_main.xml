@@ -57,6 +57,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_cast_receiver"
+        android:icon="@drawable/ic_tv"
+        android:title="@string/yansitma_alici"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_rotate"
         android:icon="@drawable/ic_rotate"
         android:title="@string/ekrani_dondur"

@@ -108,6 +108,42 @@
     <string name="dlna_yukleniyor">Yükleniyor…</string>
     <string name="dlna_sunucu_sec">Bir sunucu seçin</string>
     <string name="dlna_medya_hatasi">DLNA içeriği açılamadı.</string>
+
+    <!-- Uygulama içi yansıtma: telefon -> TV -->
+    <string name="yansitma_alici">Yansıtma alıcısı</string>
+    <string name="yansitma_alici_acik">Bu cihaz yayın alıyor\nIP: %1$s · %2$s</string>
+    <string name="yansitma_alici_kapali">Alıcı kapalı. Telefondan bulunmak için başlatın.</string>
+    <string name="yansitma_alici_baslat">Alıcıyı başlat</string>
+    <string name="yansitma_alici_durdur">Alıcıyı durdur</string>
+    <string name="yansitma_pin">Eşleştirme kodu: %1$s</string>
+    <string name="yansitma_aciklama">Telefonda kanalı açıp TV simgesine dokunun, bu kodu girin.</string>
+    <string name="yansitma_gonder">TV\'ye yansıt</string>
+    <string name="yansitma_cihaz_ara">Aynı ağdaki TV Listesi alıcıları aranıyor…</string>
+    <string name="yansitma_cihaz_yok">Alıcı bulunamadı.\nTV\'de Yansıtma alıcısını başlatın.</string>
+    <string name="yansitma_gonderiliyor">TV\'ye gönderiliyor…</string>
+    <string name="yansitma_gonderildi">\"%1$s\" → %2$s cihazına gönderildi</string>
+    <string name="yansitma_gonderilemedi">TV\'ye gönderilemedi.</string>
+    <string name="yansitma_pin_baslik">Eşleştirme kodu</string>
+    <string name="yansitma_pin_mesaj">TV ekranındaki 6 haneli kodu girin.</string>
+    <string name="yansitma_pin_hatali">6 haneli kod girin.</string>
+    <string name="yansitma_ip_ile_ekle">IP ile ekle</string>
+    <string name="yansitma_ip_baslik">Alıcı IP adresi</string>
+    <string name="yansitma_gecerli_ip">Geçerli bir IP adresi girin.</string>
+    <string name="yansitma_kumanda">Yansıtma kumandası</string>
+    <string name="yansitma_kumanda_aciklama">%1$s cihazındaki yayını bu ekrandan kontrol edin.</string>
+    <string name="yansitma_ses_azalt">Ses −</string>
+    <string name="yansitma_ses_artir">Ses +</string>
+    <string name="yansitma_geri_sar">−15 sn</string>
+    <string name="yansitma_ileri_sar">+15 sn</string>
+    <string name="yansitma_oynat_duraklat">Oynat / Duraklat</string>
+    <string name="yansitma_baska_cihaz">Başka cihaz</string>
+    <string name="yansitma_bag_kes">Bağlantıyı kes</string>
+    <string name="yansitma_kumanda_gonderilemedi">Komut gönderilemedi: %1$s</string>
+    <string name="kisayol_kumanda_kisa">Kumanda</string>
+    <string name="kisayol_kumanda_uzun">Yansıtma kumandası</string>
+    <string name="kisayol_kumanda_devre_disi">Önce bir TV’ye yansıtman gerekiyor.</string>
+    <string name="kisayol_kumanda_yok">Önce bir TV’ye yansıtman gerekiyor.</string>
+
     <string name="surum">Sürüm: %1$s</string>
 
     <!-- Kaydırma hareketleri -->
